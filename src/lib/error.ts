@@ -11,6 +11,47 @@ export class ApiError extends Error {
   }
 }
 
+const HTML_RESPONSE_HINT =
+  'The server returned a web page instead of API JSON. In Vercel (or .env), set NEXT_PUBLIC_BACKEND_API to your backend base URL including /api (e.g. https://api.example.com/api)—not this admin site URL.'
+
+function looksLikeHtmlPayload(s: string): boolean {
+  const t = s.trim().toLowerCase()
+  return t.startsWith('<!doctype') || t.startsWith('<html')
+}
+
+function messageFromResponseData(
+  data: unknown,
+  status: number | undefined,
+  fallback: string
+): string {
+  if (data == null) {
+    return status ? `${fallback} (HTTP ${status})` : fallback
+  }
+  if (typeof data === 'string') {
+    const t = data.trim()
+    if (looksLikeHtmlPayload(t)) {
+      return HTML_RESPONSE_HINT
+    }
+    if (t.startsWith('{')) {
+      try {
+        const p = JSON.parse(t) as { error?: string; message?: string }
+        return p.error || p.message || fallback
+      } catch {
+        return t.slice(0, 240) || fallback
+      }
+    }
+    return t.slice(0, 240) || fallback
+  }
+  if (typeof data === 'object' && !Array.isArray(data)) {
+    const o = data as Record<string, unknown>
+    const e = o.error
+    const m = o.message
+    if (typeof e === 'string' && e) return e
+    if (typeof m === 'string' && m) return m
+  }
+  return status ? `${fallback} (HTTP ${status})` : fallback
+}
+
 export const handleApiError = (
   error: unknown,
   defaultMessage = 'An unexpected error occurred'
@@ -36,7 +77,7 @@ export const handleApiError = (
     const statusCode = axiosError.response?.status
 
     throw new ApiError(
-      errorData?.error || errorData?.message || defaultMessage,
+      messageFromResponseData(errorData, statusCode, defaultMessage),
       statusCode
     )
   }
