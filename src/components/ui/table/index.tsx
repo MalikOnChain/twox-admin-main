@@ -1,0 +1,83 @@
+import React, { ReactNode } from 'react'
+
+import { cn } from '@/lib/utils'
+
+// Props for Table
+interface TableProps {
+  children: ReactNode // Table content (thead, tbody, etc.)
+  className?: string // Optional className for styling
+}
+
+// Props for TableHeader
+interface TableHeaderProps {
+  children: ReactNode // Header row(s)
+  className?: string // Optional className for styling
+}
+
+// Props for TableBody
+interface TableBodyProps {
+  children: ReactNode // Body row(s)
+  className?: string // Optional className for styling
+}
+
+// Props for TableRow
+interface TableRowProps {
+  children: ReactNode // Cells (th or td)
+  className?: string // Optional className for styling
+  onClick?: () => void // Optional onClick Event
+}
+
+// Props for TableCell
+interface TableCellProps {
+  children?: ReactNode // Cell content
+  isHeader?: boolean // If true, renders as <th>, otherwise <td>
+  className?: string // Optional className for styling
+  colSpan?: number // Optional colSpan for styling
+  onClick?: () => void // Optional onClick Event
+}
+
+// Table Component
+const Table: React.FC<TableProps> = ({ children, className }) => {
+  return <table className={cn(`min-w-full`, className)}>{children}</table>
+}
+
+// TableHeader Component
+const TableHeader: React.FC<TableHeaderProps> = ({ children, className }) => {
+  return <thead className={className}>{children}</thead>
+}
+
+// TableBody Component
+const TableBody: React.FC<TableBodyProps> = ({ children, className }) => {
+  return <tbody className={className}>{children}</tbody>
+}
+
+// TableRow Component
+const TableRow: React.FC<TableRowProps> = ({
+  children,
+  className,
+  onClick,
+}) => {
+  return (
+    <tr className={className} onClick={onClick}>
+      {children}
+    </tr>
+  )
+}
+
+// TableCell Component
+const TableCell: React.FC<TableCellProps> = ({
+  children,
+  isHeader = false,
+  className,
+  colSpan,
+  onClick,
+}) => {
+  const CellTag = isHeader ? 'th' : 'td'
+  return (
+    <CellTag className={` ${className}`} colSpan={colSpan} onClick={onClick}>
+      {children}
+    </CellTag>
+  )
+}
+
+export { Table, TableBody, TableCell, TableHeader, TableRow }
