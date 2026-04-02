@@ -8,7 +8,7 @@
     "start": "next start -p 9000",
     "lint": "eslint \"src/**/*.{ts,tsx,js,jsx}\" --fix",
     "format": "prettier --write 'src/**/*.{ts,tsx,js,jsx}'",
-    "prepare": "husky install",
+    "prepare": "node scripts/prepare-husky.cjs",
     "commit": "git-cz",
     "commit:verify": "git-cz --verify"
   },
