@@ -2,9 +2,14 @@
   "name": "twox-admin-panel-frontend",
   "version": "1.0.0",
   "private": true,
+  "engines": {
+    "node": "^20.18.1"
+  },
   "scripts": {
     "dev": "next dev -p 9000",
     "build": "next build",
+    "type-check": "tsc --noEmit",
+    "verify": "npm run type-check && npm run build",
     "start": "next start -p 9000",
     "lint": "eslint \"src/**/*.{ts,tsx,js,jsx}\" --fix",
     "format": "prettier --write 'src/**/*.{ts,tsx,js,jsx}'",
