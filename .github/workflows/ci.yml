@@ -31,7 +31,7 @@ jobs:
           node-version: '20.18.1'
 
       - name: Install dependencies (no lifecycle scripts)
-        run: rm -rf node_modules && npm install --ignore-scripts --no-audit --no-fund
+        run: rm -rf node_modules && npm install --ignore-scripts --no-audit --no-fund --legacy-peer-deps
 
       - name: Typecheck
         run: npm run type-check
