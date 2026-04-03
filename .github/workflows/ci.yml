@@ -29,8 +29,6 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '20.18.1'
-          cache: npm
-          cache-dependency-path: package-lock.json
 
       - name: Install dependencies (no lifecycle scripts)
         run: rm -rf node_modules && npm install --ignore-scripts --no-audit --no-fund
