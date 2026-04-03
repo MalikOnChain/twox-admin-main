@@ -1,4 +1,4 @@
-import { api } from '@/lib/api'
+import api from '@/lib/api'
 import { handleApiError } from '@/lib/error'
 
 import { IFriendsListResponse, IRewardsListResponse } from '@/types/affiliate'

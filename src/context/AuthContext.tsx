@@ -60,8 +60,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setToken(exchangedToken)
         const storedToken = getToken()
         if (!storedToken) {
-          toast.error('Login failed...')
-          return
+          toast.error('Login failed: token was not stored.')
+          throw new Error('Login failed: token was not stored.')
         }
         const user = await getCurrentUser()
         setUser(user)

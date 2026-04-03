@@ -9,8 +9,15 @@ import { signIn } from '@/api/auth'
 
 import { useAuth } from '@/context/AuthContext'
 
+import {
+  clearRememberedAdminLogin,
+  getRememberedAdminLogin,
+  saveRememberedAdminLogin,
+} from '@/lib/remember-admin-login'
+
 import OAuthButtons from '@/components/auth/OAuthButtons'
 import Label from '@/components/form/Label'
+import Switch from '@/components/form/switch/Switch'
 import Button from '@/components/ui/button/Button'
 
 import { EyeCloseIcon, EyeIcon } from '@/icons'
@@ -21,6 +28,7 @@ export default function SignInForm() {
   const { checkAuth } = useAuth()
 
   const [showPassword, setShowPassword] = useState(false)
+  const [rememberPassword, setRememberPassword] = useState(false)
   const router = useRouter()
   const [loading, setLoading] = useState(false)
   const searchParams = useSearchParams()
@@ -29,7 +37,24 @@ export default function SignInForm() {
     register,
     formState: { errors },
     handleSubmit,
+    reset,
   } = useForm<ISignInInput>()
+
+  useEffect(() => {
+    const saved = getRememberedAdminLogin()
+    if (saved) {
+      reset({ email: saved.email, password: saved.password })
+      setRememberPassword(true)
+    }
+  }, [reset])
+
+  const persistCredentialsIfEnabled = (email: string, password: string) => {
+    if (rememberPassword) {
+      saveRememberedAdminLogin(email, password)
+    } else {
+      clearRememberedAdminLogin()
+    }
+  }
 
   const onSubmit: SubmitHandler<ISignInInput> = async (data) => {
     if (loading) return
@@ -43,21 +68,25 @@ export default function SignInForm() {
           } catch {
             return
           }
+          persistCredentialsIfEnabled(data.email, data.password)
           router.push('/')
           return
         }
 
         if (res.OTPRequired && res.twoFARequired) {
+          persistCredentialsIfEnabled(data.email, data.password)
           router.push(`/verify?2fa=true&otp=true&email=${data.email}`)
           return
         }
 
         if (res.twoFARequired) {
+          persistCredentialsIfEnabled(data.email, data.password)
           router.push(`/verify?2fa=true&email=${data.email}`)
           return
         }
 
         if (res.OTPRequired) {
+          persistCredentialsIfEnabled(data.email, data.password)
           router.push(`/verify?otp=true&email=${data.email}`)
           return
         }
@@ -149,35 +178,43 @@ export default function SignInForm() {
                             'Password must be at most 30 characters long.',
                         },
                       })}
-                      className='shadow-theme-xs dark:focus:border-brand-800 h-11 w-full appearance-none rounded-lg border px-4 py-2.5 text-sm placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30'
+                      className='shadow-theme-xs dark:focus:border-brand-800 h-11 w-full appearance-none rounded-lg border py-2.5 pr-12 pl-4 text-sm placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30'
                       aria-invalid={errors.password ? 'true' : 'false'}
                     />
-                    <span
+                    <button
+                      type='button'
+                      aria-label={showPassword ? 'Hide password' : 'Show password'}
                       onClick={() => setShowPassword(!showPassword)}
-                      className='absolute top-6 right-4 z-30 -translate-y-1/2 cursor-pointer'
+                      className='absolute top-1/2 right-3 z-30 -translate-y-1/2 cursor-pointer rounded p-1 text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-white/10'
                     >
                       {showPassword ? (
-                        <EyeIcon className='fill-gray-500 dark:fill-gray-400' />
+                        <EyeIcon className='fill-current' />
                       ) : (
-                        <EyeCloseIcon className='fill-gray-500 dark:fill-gray-400' />
+                        <EyeCloseIcon className='fill-current' />
                       )}
-                    </span>
+                    </button>
                   </div>
                   <span className='text-error-500 text-xs'>
                     {' '}
                     {errors?.password?.message || ''}
                   </span>
                 </div>
-                <div className='flex items-center justify-between'>
-                  {/* <div className="flex items-center gap-3">
-                    <Checkbox checked={isChecked} onChange={setIsChecked} />
-                    <span className="block font-normal text-gray-700 text-theme-sm dark:text-gray-400">
-                      Keep me logged in
-                    </span>
-                  </div> */}
+                <div className='flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between'>
+                  <Switch
+                    key={`remember-${rememberPassword}`}
+                    label='Remember password'
+                    labelClassName='flex-row-reverse justify-start gap-3 text-theme-sm font-normal text-gray-700 dark:text-gray-400'
+                    defaultChecked={rememberPassword}
+                    onChange={(checked) => {
+                      setRememberPassword(checked)
+                      if (!checked) {
+                        clearRememberedAdminLogin()
+                      }
+                    }}
+                  />
                   <Link
                     href='/reset-password'
-                    className='text-brand-500 hover:text-brand-600 dark:text-brand-400 text-sm'
+                    className='text-brand-500 hover:text-brand-600 dark:text-brand-400 shrink-0 text-sm sm:ml-auto'
                   >
                     Forgot password?
                   </Link>

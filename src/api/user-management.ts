@@ -133,6 +133,20 @@ export const getPlayerProfile = async (userId: string): Promise<IPlayerProfile> 
   }
 }
 
+export const resetMemberPassword = async (
+  userId: string,
+  password: string
+): Promise<{ success: boolean; message?: string }> => {
+  try {
+    const response = await api.post(`/user-management/player-profile/${userId}/password`, {
+      password,
+    })
+    return response.data
+  } catch (error) {
+    handleApiError(error, 'Failed to reset member password')
+  }
+}
+
 // KYC Shortcut
 export interface IKYCShortcut {
   _id: string

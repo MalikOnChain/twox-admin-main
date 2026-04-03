@@ -16,6 +16,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 
 import { ChevronLeftIcon } from '@/icons'
 
+import ResetMemberPasswordModal from './ResetMemberPasswordModal'
 import BetsTab from './player-profile/BetsTab'
 import BonusesTab from './player-profile/BonusesTab'
 import EngagementTab from './player-profile/EngagementTab'
@@ -36,6 +37,7 @@ export default function PlayerProfilePage({ userId }: PlayerProfilePageProps) {
   const router = useRouter()
   const [loading, setLoading] = useState(true)
   const [profile, setProfile] = useState<IPlayerProfile['data'] | null>(null)
+  const [resetPasswordOpen, setResetPasswordOpen] = useState(false)
 
   const fetchProfile = useCallback(async () => {
     if (!userId || userId === 'undefined' || userId === 'null') {
@@ -153,9 +155,9 @@ export default function PlayerProfilePage({ userId }: PlayerProfilePageProps) {
             <Button
               size='sm'
               variant='outline'
-              onClick={() => toast.info('Reset PW/2FA functionality to be implemented')}
+              onClick={() => setResetPasswordOpen(true)}
             >
-              Reset PW/2FA
+              Reset password
             </Button>
             <Button
               size='sm'
@@ -327,6 +329,14 @@ export default function PlayerProfilePage({ userId }: PlayerProfilePageProps) {
           </div>
         </div>
       </div>
+
+      <ResetMemberPasswordModal
+        isOpen={resetPasswordOpen}
+        onClose={() => setResetPasswordOpen(false)}
+        userId={userId}
+        username={user.username}
+        email={user.email}
+      />
     </div>
   )
 }

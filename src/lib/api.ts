@@ -3,107 +3,166 @@ import axios, { AxiosError, AxiosInstance, AxiosResponse } from 'axios'
 
 import storageHandler from './storage-utils'
 
-// Token management with type safety
 const tokenStorage = storageHandler({ key: 'token' })
 
-// Environment variables — must be the Express API (…/api), not this Next.js admin URL
-export const API_URL = process.env.NEXT_PUBLIC_BACKEND_API?.trim() || ''
-if (typeof window !== 'undefined' && !API_URL) {
-  console.warn(
-    'NEXT_PUBLIC_BACKEND_API is missing: API calls go to this site and return HTML. Set it in Vercel to your backend, e.g. https://your-api.com/api'
-  )
+/**
+ * Browser: same-origin `/api/admin-bff/*` → App Router proxy (`app/api/admin-bff/[...path]/route.ts`).
+ * Avoids CORS / mixed-content. Proxy reads ADMIN_BACKEND_INTERNAL_URL at request time (local + Vercel).
+ *
+ * Direct cross-origin API (legacy): NEXT_PUBLIC_USE_DIRECT_API=true and NEXT_PUBLIC_BACKEND_API=https://…/api
+ */
+const DIRECT_API = process.env.NEXT_PUBLIC_BACKEND_API?.trim() || ''
+const USE_DIRECT_API =
+  typeof process.env.NEXT_PUBLIC_USE_DIRECT_API === 'string' &&
+  process.env.NEXT_PUBLIC_USE_DIRECT_API.toLowerCase() === 'true'
+
+function serverSideApiBase(): string {
+  const internal = process.env.ADMIN_BACKEND_INTERNAL_URL?.trim().replace(/\/$/, '')
+  if (internal) return internal
+  if (DIRECT_API) return DIRECT_API
+  return 'http://127.0.0.1:5000/api'
 }
 
-// Create and configure axios instance
+function resolveBaseURL(): string {
+  if (typeof window === 'undefined') {
+    return serverSideApiBase()
+  }
+  if (USE_DIRECT_API && DIRECT_API) {
+    return DIRECT_API
+  }
+  return '/api/admin-bff'
+}
+
+/** Effective axios baseURL for this runtime (browser proxy path or absolute server URL). */
+export const API_URL = resolveBaseURL()
+
 export const api: AxiosInstance = axios.create({
-  baseURL: API_URL || undefined,
+  baseURL: API_URL,
   headers: {
     'Content-Type': 'application/json',
   },
   withCredentials: true,
-  timeout: 30000, // Add a reasonable timeout
+  timeout: 30000,
 })
 
-// Constants
 const AUTH_TOKEN_HEADER = 'x-auth-token'
 
-/** Failed sign-in / OAuth start must not trigger the global session redirect. */
-function skipGlobalAuthRedirectOnError(config: { method?: string; url?: string }): boolean {
-  const method = (config.method || 'get').toLowerCase()
-  if (method !== 'post') return false
-  const url = config.url || ''
-  return (
-    url === '/auth/signin' ||
-    url.endsWith('/auth/signin') ||
-    url === '/auth/google/signin' ||
-    url.endsWith('/auth/google/signin') ||
-    url === '/auth/exchange-token' ||
-    url.endsWith('/auth/exchange-token')
-  )
+function requestPathFromConfig(config: {
+  url?: string
+  baseURL?: string
+}): string {
+  const raw = (config.url || '').split('?')[0]
+  if (raw.startsWith('http')) {
+    try {
+      return new URL(raw).pathname
+    } catch {
+      return raw
+    }
+  }
+  const base = (config.baseURL || '').replace(/\/$/, '')
+  if (base && raw.startsWith('/')) {
+    return `${base}${raw}`.replace(/([^:]\/)\/+/g, '$1')
+  }
+  return raw
 }
 
-/**
- * Add request interceptor to handle authentication and timezone
- */
-api.interceptors.request.use(
-  (request) => {
-    if (typeof window !== 'undefined' && !API_URL) {
-      return Promise.reject(
-        new Error(
-          'NEXT_PUBLIC_BACKEND_API is not set. Add it in Vercel Environment Variables (your backend URL with /api).'
-        )
+const AUTH_PUBLIC_POST_PATHS = [
+  '/auth/signin',
+  '/auth/google/signin',
+  '/auth/exchange-token',
+  '/auth/signup',
+  '/auth/verify',
+  '/auth/send-otp',
+]
+
+function skipGlobalAuthRedirectOnError(config: {
+  method?: string
+  url?: string
+  baseURL?: string
+}): boolean {
+  const method = (config.method || 'get').toLowerCase()
+  if (method !== 'post') return false
+  const path = requestPathFromConfig(config)
+  return AUTH_PUBLIC_POST_PATHS.some((p) => path.endsWith(p))
+}
+
+function readAuthTokenHeader(headers: AxiosResponse['headers']): string | undefined {
+  const want = AUTH_TOKEN_HEADER.toLowerCase()
+  const key = Object.keys(headers).find((k) => k.toLowerCase() === want)
+  if (!key) return undefined
+  const v = headers[key]
+  if (typeof v === 'string') return v
+  if (Array.isArray(v) && typeof v[0] === 'string') return v[0]
+  return undefined
+}
+
+function describeNetworkFailure(error: AxiosError): string {
+  const code = error.code
+  const msg = (error.message || '').toLowerCase()
+
+  if (code === 'ERR_NETWORK' || msg.includes('network error')) {
+    if (
+      typeof window !== 'undefined' &&
+      window.location.protocol === 'https:' &&
+      USE_DIRECT_API &&
+      DIRECT_API.startsWith('http:')
+    ) {
+      return (
+        'Mixed content blocked: this site is HTTPS but NEXT_PUBLIC_BACKEND_API is HTTP. ' +
+        'Unset NEXT_PUBLIC_USE_DIRECT_API to use the /api/admin-bff proxy, or serve the API over HTTPS.'
       )
     }
+    return (
+      'Cannot reach the API. Using the default proxy: set ADMIN_BACKEND_INTERNAL_URL (e.g. http://127.0.0.1:5000/api) and restart Next.js; on Vercel set it to your live API URL including /api. ' +
+      'Ensure the backend is running. If you use direct API mode, check CORS and NEXT_PUBLIC_BACKEND_API.'
+    )
+  }
+  if (code === 'ECONNABORTED' || msg.includes('timeout')) {
+    return 'Request timed out. Check that the backend is running and reachable.'
+  }
+  return error.message || 'Network error: Please check your internet connection'
+}
+
+api.interceptors.request.use(
+  (request) => {
     const token = tokenStorage.getValue()
     if (token) {
       request.headers['x-auth-token'] = `${token}`
     }
-    // Always send timezone header (required by backend for date-based queries)
     request.headers['timezone'] = Intl.DateTimeFormat().resolvedOptions().timeZone
-    
-    // If the request data is FormData, remove Content-Type header to let axios set it with boundary
+
     if (request.data instanceof FormData) {
       delete request.headers['Content-Type']
     }
-    
+
     return request
   },
-  (error) => {
-    return Promise.reject(error)
-  }
+  (error) => Promise.reject(error)
 )
 
-/**
- * Add response interceptor to handle token refresh and errors
- */
 api.interceptors.response.use(
   (response: AxiosResponse): AxiosResponse => {
-    // Check if new auth token exists in response headers
-    const newAccessToken = response.headers[AUTH_TOKEN_HEADER]
-
+    const newAccessToken = readAuthTokenHeader(response.headers)
     if (newAccessToken) {
       tokenStorage.setValue(newAccessToken)
     }
-
     return response
   },
   async (error: AxiosError): Promise<never> => {
-    // Handle network errors (no response received)
     if (!error.response) {
-      return Promise.reject(
-        new Error('Network error: Please check your internet connection')
-      )
+      return Promise.reject(new Error(describeNetworkFailure(error)))
     }
 
-    // Handle authentication errors (but not failed sign-in — user is not logged in yet)
     if (
+      typeof window !== 'undefined' &&
       [401, 403].includes(error.response.status) &&
       error.config &&
       !skipGlobalAuthRedirectOnError(error.config)
     ) {
       tokenStorage.removeValue()
-      window.location.href = '/'
-      await new Promise((resolve) => setTimeout(resolve, 5000))
+      if (window.location.pathname !== '/signin') {
+        window.location.href = '/signin'
+      }
       return Promise.reject(error)
     }
 

@@ -287,7 +287,7 @@ const AdminDetail = ({
               </span>
               <div className='relative'>
                 <input
-                  className={inputClass}
+                  className={`${inputClass} pr-12`}
                   type={showPassword ? 'text' : 'password'}
                   {...register('password', {
                     required: isCreate ? 'Password required' : false,
@@ -299,16 +299,18 @@ const AdminDetail = ({
                     },
                   })}
                 />
-                <span
+                <button
+                  type='button'
+                  aria-label={showPassword ? 'Hide password' : 'Show password'}
                   onClick={() => setShowPassword(!showPassword)}
-                  className='absolute top-6 right-4 z-30 -translate-y-1/2 cursor-pointer'
+                  className='absolute top-1/2 right-3 z-30 -translate-y-1/2 cursor-pointer rounded p-1 text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-white/10'
                 >
                   {showPassword ? (
-                    <EyeIcon className='fill-gray-500 dark:fill-gray-400' />
+                    <EyeIcon className='fill-current' />
                   ) : (
-                    <EyeCloseIcon className='fill-gray-500 dark:fill-gray-400' />
+                    <EyeCloseIcon className='fill-current' />
                   )}
-                </span>
+                </button>
               </div>
             </div>
             <div>
