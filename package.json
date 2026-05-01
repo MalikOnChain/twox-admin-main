@@ -64,7 +64,7 @@
     "@commitlint/config-conventional": "^16.2.4",
     "@eslint/eslintrc": "^3",
     "@svgr/webpack": "^8.1.0",
-    "@types/node": "^20",
+    "@types/node": "^25",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "@types/react-flatpickr": "^3.8.11",
